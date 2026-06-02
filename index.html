@@ -294,6 +294,25 @@
   .news .msg.err{color:#9b2c2c}
   .news .msg.ok{color:var(--gold-deep)}
 
+  /* Cinematic film band */
+  .film{position:relative;width:100%;height:clamp(440px,86vh,900px);overflow:hidden;background:#11100e}
+  .film video,.film .film-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;will-change:transform}
+  .film .film-poster{z-index:0}
+  .film video{z-index:1;opacity:0;transition:opacity 1.2s var(--ease)}
+  .film video.ready{opacity:1}
+  .film::after{content:"";position:absolute;inset:0;z-index:2;background:
+    linear-gradient(180deg,rgba(17,16,14,.34) 0%,rgba(17,16,14,.05) 32%,rgba(17,16,14,.12) 62%,rgba(17,16,14,.74) 100%)}
+  .film-inner{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;padding:clamp(36px,7vw,96px);gap:22px}
+  .film-inner .eyebrow{color:var(--gold)}
+  .film-inner h2{color:#fff;font-size:clamp(34px,6vw,86px);letter-spacing:-0.02em;text-shadow:0 2px 40px rgba(0,0,0,.4)}
+  .film-inner h2 em{font-style:italic;color:#e9d9bd}
+  .film-inner .btn{background:transparent;border-color:rgba(255,255,255,.6);color:#fff}
+  .film-inner .btn:hover{background:#fff;color:var(--ink);border-color:#fff}
+  .film-sound{position:absolute;top:18px;right:18px;z-index:4;width:42px;height:42px;border:1px solid rgba(255,255,255,.45);background:rgba(17,16,14,.3);backdrop-filter:blur(6px);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .3s,border-color .3s}
+  .film-sound:hover{background:rgba(255,255,255,.16);border-color:#fff}
+  .film-sound svg{width:18px;height:18px}
+  @media(prefers-reduced-motion:reduce){.film video{display:none}.film .film-poster{z-index:1}}
+
   /* Footer */
   footer{background:var(--ink);color:#bdb6aa;padding:clamp(56px,7vw,96px) 0 36px}
   .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px}
@@ -416,6 +435,21 @@
       <span>Titan</span><span>Sahara Lumière</span><span>Aureline</span><span>Ambre Suprême</span><span>Extrait de Parfum</span>
     </div>
   </div>
+
+  <!-- CINEMATIC FILM -->
+  <section class="film" id="film" aria-label="Velon in motion">
+    <img class="film-poster" src="images/velon-hero-poster.jpg" alt="" aria-hidden="true" />
+    <video id="filmVideo" muted loop playsinline preload="none" poster="images/velon-hero-poster.jpg"
+           data-src="images/velon-hero.mp4"></video>
+    <button class="film-sound" id="filmSound" aria-label="Toggle sound" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9.5a3.5 3.5 0 0 1 0 5" stroke-dasharray="1 0"/></svg>
+    </button>
+    <div class="film-inner">
+      <span class="eyebrow reveal">Velon — In Motion</span>
+      <h2 class="reveal">Where Presence<br/>Becomes <em>Power</em></h2>
+      <a href="#collection" class="btn reveal">Enter the Collection</a>
+    </div>
+  </section>
 
   <!-- COLLECTION -->
   <section class="sec" id="collection">
@@ -674,6 +708,48 @@
       entries.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});
     },{threshold:0.12,rootMargin:'0px 0px -8% 0px'});
     els.forEach(function(e){io.observe(e);});
+  })();
+
+  // Cinematic film: lazy autoplay, reduced-motion guard, parallax, sound toggle
+  (function(){
+    var sec=document.getElementById('film'),v=document.getElementById('filmVideo'),btn=document.getElementById('filmSound');
+    if(!sec||!v)return;
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce){btn.style.display='none';return;} // poster only
+    // Lazy load + play when in view, pause when out (saves battery/CPU)
+    var loaded=false;
+    if('IntersectionObserver' in window){
+      var io=new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          if(e.isIntersecting){
+            if(!loaded){v.src=v.dataset.src;loaded=true;v.addEventListener('loadeddata',function(){v.classList.add('ready');},{once:true});}
+            var p=v.play();if(p&&p.catch)p.catch(function(){});
+          }else if(loaded){v.pause();}
+        });
+      },{threshold:0.25});
+      io.observe(sec);
+    }else{v.src=v.dataset.src;loaded=true;v.classList.add('ready');v.play();}
+    // Sound toggle
+    btn.addEventListener('click',function(){
+      v.muted=!v.muted;btn.setAttribute('aria-pressed',String(!v.muted));
+      if(!v.muted){var p=v.play();if(p&&p.catch)p.catch(function(){});}
+    });
+    // Subtle parallax (transform only, rAF-throttled)
+    var ticking=false;
+    function onScroll(){
+      if(ticking)return;ticking=true;
+      requestAnimationFrame(function(){
+        var r=sec.getBoundingClientRect(),vh=window.innerHeight;
+        if(r.bottom>0&&r.top<vh){
+          var prog=(r.top+r.height/2-vh/2)/vh; // -0.5..0.5 around center
+          var shift=Math.max(-40,Math.min(40,prog*-46));
+          v.style.transform='scale(1.12) translate3d(0,'+shift+'px,0)';
+          sec.querySelector('.film-poster').style.transform=v.style.transform;
+        }
+        ticking=false;
+      });
+    }
+    window.addEventListener('scroll',onScroll,{passive:true});onScroll();
   })();
 
   // Newsletter validation states
